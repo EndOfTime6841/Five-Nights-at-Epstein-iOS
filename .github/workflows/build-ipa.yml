@@ -1,0 +1,45 @@
+name: Compile iOS Meme IPA
+
+on:
+  workflow_dispatch: # Allows you to manually click "Run workflow" on GitHub
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-node-version: 18
+
+      - name: Install Dependencies
+        run: |
+          npm install
+          npx cap sync ios
+
+      - name: Compile Unsigned Xcode Archive
+        run: |
+          xcodebuild archive \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -archivePath build/App.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package Archive into IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/App.xcarchive/Products/Applications/App.app Payload/
+          zip -r FNAE_Meme.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FNAE-iOS-Meme-IPA
+          path: FNAE_Meme.ipa
