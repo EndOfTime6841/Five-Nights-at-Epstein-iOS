@@ -1,4 +1,4 @@
-name: Compile Web App to iOS IPA
+name: Compile Alpha 0.0.8 release 7
 
 on:
   workflow_dispatch:
