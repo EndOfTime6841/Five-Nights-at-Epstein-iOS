@@ -42,11 +42,12 @@ jobs:
         run: |
           mkdir -p Payload
           cp -r build/App.xcarchive/Products/Applications/App.app Payload/
-          ipa -r FNAE_Meme.ipa Payload
+          
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: FNAE-iOS-Meme-IPA
           path: FNAE_Meme.ipa
+  
  
