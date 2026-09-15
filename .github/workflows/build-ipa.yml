@@ -1,26 +1,29 @@
 name: Compile Web App to iOS IPA
+
 on:
   workflow_dispatch:
-    # Allows you to manually trigger this workflow from the Actions tab
-# Allows the workflow to create/update GitHub Releases
+
 permissions:
   contents: write
+
 jobs:
   build:
     runs-on: macos-latest
+
     steps:
       # 1. Checkout source code
       - name: Checkout Source Code
         uses: actions/checkout@v4
+
       # 2. Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      # 3. Create Capacitor project and install dependencies
+
+      # 3. Create Capacitor wrapper
       - name: Create App Wrapper and Install
         run: |
-          # Generate package.json
           echo '{
             "name": "fnae-meme",
             "version": "1.0.0",
@@ -32,19 +35,18 @@ jobs:
               "@capacitor/cli": "^6.0.0"
             }
           }' > package.json
-          # Generate Capacitor configuration
+
           echo '{
             "appId": "com.meme.fnae",
             "appName": "FNAE Meme",
             "webDir": "www"
           }' > capacitor.config.json
-          # Install dependencies
+
           npm install
-          # Add iOS platform
           npx cap add ios
-          # Sync web project with iOS project
           npx cap sync ios
-      # 4. Build an unsigned Xcode archive
+
+      # 4. Compile unsigned Xcode archive
       - name: Compile Unsigned Xcode Archive
         run: |
           xcodebuild archive \
@@ -55,19 +57,40 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
-      # 5. Package the .app into an IPA
-      - name: Package Archive into IPA
+
+      # 5. Create proper IPA structure
+      - name: Create Payload Folder
         run: |
-          mkdir -p Payload
-          cp -r \
+          rm -rf IPA
+          mkdir -p IPA/Payload
+
+          cp -R \
             build/App.xcarchive/Products/Applications/App.app \
-            Payload/
-          cd Payload
-          zip -r ../FNAE_Meme.ipa .
+            IPA/Payload/App.app
+
+          echo "IPA structure:"
+          find IPA -maxdepth 2 -type d
+
+      # 6. Zip Payload and rename ZIP to IPA
+      - name: Package IPA
+        run: |
+          cd IPA
+
+          # Create ZIP containing Payload/App.app
+          zip -r -q ../FNAE_Meme.zip Payload
+
           cd ..
-          echo "IPA created:"
+
+          # Rename ZIP to IPA
+          mv FNAE_Meme.zip FNAE_Meme.ipa
+
+          echo "Created IPA:"
           ls -lh FNAE_Meme.ipa
-      # 6. Create a GitHub Release and attach the IPA
+
+          echo "IPA contents:"
+          unzip -l FNAE_Meme.ipa | head -30
+
+      # 7. Create GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
