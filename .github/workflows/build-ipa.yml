@@ -1,32 +1,50 @@
 name: Compile Web App to iOS IPA
-
 on:
-  workflow_dispatch: # Allows you to manually trigger this via the Actions tab
-
+  workflow_dispatch:
+    # Allows you to manually trigger this workflow from the Actions tab
+# Allows the workflow to create/update GitHub Releases
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: macos-latest
-
     steps:
+      # 1. Checkout source code
       - name: Checkout Source Code
         uses: actions/checkout@v4
-
+      # 2. Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
+      # 3. Create Capacitor project and install dependencies
       - name: Create App Wrapper and Install
         run: |
-          # 1. Dynamically generate the required project configuration files
-          echo '{"name": "fnae-meme", "version": "0.0.8", "dependencies": {"@capacitor/core": "^6.0.0", "@capacitor/ios": "^6.0.0"}, "devDependencies": {"@capacitor/cli": "^6.0.0"}}' > package.json
-          echo '{"appId": "com.meme.fnae", "appName": "FNAE Meme", "webDir": "www"}' > capacitor.config.json
-          
-          # 2. Safely run install and build steps sequentially in a single container environment
+          # Generate package.json
+          echo '{
+            "name": "fnae-meme",
+            "version": "1.0.0",
+            "dependencies": {
+              "@capacitor/core": "^6.0.0",
+              "@capacitor/ios": "^6.0.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^6.0.0"
+            }
+          }' > package.json
+          # Generate Capacitor configuration
+          echo '{
+            "appId": "com.meme.fnae",
+            "appName": "FNAE Meme",
+            "webDir": "www"
+          }' > capacitor.config.json
+          # Install dependencies
           npm install
+          # Add iOS platform
           npx cap add ios
+          # Sync web project with iOS project
           npx cap sync ios
-
+      # 4. Build an unsigned Xcode archive
       - name: Compile Unsigned Xcode Archive
         run: |
           xcodebuild archive \
@@ -37,16 +55,20 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY=""
-
+      # 5. Package the .app into an IPA
       - name: Package Archive into IPA
         run: |
           mkdir -p Payload
-          cp -r build/App.xcarchive/Products/Applications/App.app Payload/
+          cp -r \
+            build/App.xcarchive/Products/Applications/App.app \
+            Payload/
           cd Payload
           zip -r ../FNAE_Meme.ipa .
           cd ..
-
-           - name: Create GitHub Release
+          echo "IPA created:"
+          ls -lh FNAE_Meme.ipa
+      # 6. Create a GitHub Release and attach the IPA
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
